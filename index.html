@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naruto Mini Browser Game</title>
+<style>
+  body, html {margin:0; padding:0; font-family:sans-serif; background:#87ceeb;}
+  #gameCanvas {background:#7bd389; display:block; margin:0 auto; border:3px solid #222;}
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="900" height="400"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const keys = {};
+let score = 0, lives = 3;
+
+const player = {x:50, y:300, w:32, h:48, vx:0, vy:0, speed:3, jumping:false, onGround:false};
+
+const gravity = 0.8;
+const platforms = [];
+function addPlatform(x,y,w,h){ platforms.push({x,y,w,h}); }
+
+// Ground and platforms
+for(let i=0;i<20;i++) addPlatform(i*48, 352, 48, 48);
+addPlatform(200, 250, 100, 20);
+addPlatform(400, 200, 100, 20);
+addPlatform(600, 250, 100, 20);
+
+// Collectibles (kunai)
+const kunais = [{x:220,y:220, collected:false}, {x:420,y:170, collected:false}, {x:620,y:220, collected:false}];
+
+// Enemies
+const enemies = [{x:360,y:304,w:32,h:32,vx:2,range:120, originX:360}];
+
+window.addEventListener('keydown', e=>keys[e.key.toLowerCase()]=true);
+window.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
+
+function rectsOverlap(a,b){return !(a.x+a.w<b.x || a.x>b.x+b.w || a.y+a.h<b.y || a.y>b.y+b.h);}
+
+function physics(){
+  // Movement
+  player.vx=0;
+  if(keys['arrowleft']||keys['a']) player.vx=-player.speed;
+  if(keys['arrowright']||keys['d']) player.vx=player.speed;
+
+  // Jump
+  if((keys[' ']||keys['arrowup']||keys['w']) && player.onGround && !player.jumping){player.vy=-14; player.jumping=true; player.onGround=false;}
+  if(!(keys[' ']||keys['arrowup']||keys['w'])) player.jumping=false;
+
+  // Gravity
+  player.vy += gravity;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Collisions
+  player.onGround=false;
+  for(const p of platforms){
+    if(rectsOverlap(player,p)){
+      if(player.vy>0 && (player.y+player.h)-p.y<20){player.y=p.y-player.h; player.vy=0; player.onGround=true;}
+      else if(player.vy<0 && p.y+p.h-player.y<20){player.y=p.y+p.h; player.vy=0;}
+      else if(player.vx>0) player.x=p.x-player.w; else player.x=p.x+p.w;
+    }
+  }
+
+  if(player.y>canvas.height+200){lives--; if(lives<=0){alert('Game Over! Score: '+score); resetGame();} else {player.x=50; player.y=300; player.vy=0;}}
+
+  // Enemies
+  for(const e of enemies){
+    e.x += e.vx;
+    if(e.x<e.originX - e.range || e.x>e.originX + e.range) e.vx*=-1;
+    if(rectsOverlap(player,e)){lives--; player.x=50; player.y=300; player.vy=0;}
+  }
+
+  // Collect Kunai
+  for(const k of kunais){if(!k.collected && rectsOverlap(player,k)){k.collected=true; score+=10;}}
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Platforms
+  ctx.fillStyle="#654321";
+  for(const p of platforms) ctx.fillRect(p.x,p.y,p.w,p.h);
+
+  // Player
+  ctx.fillStyle="#ffcc00";
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+
+  // Kunai
+  ctx.fillStyle="black";
+  for(const k of kunais) if(!k.collected) ctx.fillRect(k.x,k.y,k.w=12,k.h=6);
+
+  // Enemies
+  ctx.fillStyle="red";
+  for(const e of enemies) ctx.fillRect(e.x,e.y,e.w,e.h);
+
+  // HUD
+  ctx.fillStyle="black"; ctx.font="18px Arial";
+  ctx.fillText("Score: "+score,10,20);
+  ctx.fillText("Lives: "+lives,10,40);
+}
+
+function gameLoop(){physics(); draw(); requestAnimationFrame(gameLoop);}
+function resetGame(){score=0; lives=3; player.x=50; player.y=300; player.vx=0; player.vy=0; kunais.forEach(k=>k.collected=false);}
+gameLoop();
+</script>
+</body>
+</html>
